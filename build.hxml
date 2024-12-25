@@ -1,0 +1,13 @@
+--library MEAPI
+--dce no
+
+--class-path script
+LogTest
+Main
+TestUpdate
+OtherUpdate
+
+--main Main
+
+--hl assets/code.hl
+--xml types.xml

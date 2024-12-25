@@ -1,0 +1,6 @@
+# this file exists purely for editing reasons. ignore.
+
+--class-path .
+--dce no
+--library MEAPI
+--hl code.hl
