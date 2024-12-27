@@ -53,9 +53,11 @@ struct HaxeStack {
 };
 
 struct AppContext {
-    me::scene::ScenePtr scene;
     float imguiFloat;
     me::math::Vector3 imguiFloat3;
+
+    me::scene::SceneSystem sceneSystem;
+    me::scene::ScenePtr scene;
     me::scene::SceneObject* exampleObject;
 
     me::asset::MeshPtr cubeMesh;
@@ -73,8 +75,7 @@ struct AppContext {
     std::unique_ptr<me::haxe::HaxeSystem> haxeSystem;
     me::haxe::HaxeType* otherTestType;
     me::haxe::HaxeObject* otherTestObject;
-    vdynamic* haxeTestUpdate;
-    vclosure updateFunction;
+    me::haxe::HaxeObject* sinUpdate;
 
     bool shouldQuit;
 };
@@ -154,14 +155,22 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
     }
 
     me::log::Initialize();
-    spdlog::info("hi!!!1 hi!!!!!!!");
-
     me::time::Initialize();
     me::fs::Initialize();
     me::window::OpenWindow("MANIFOLDEngine", { 1280, 720 });
 
     auto ctx = new AppContext();
     ctx->shouldQuit = false;
+
+    // HAXE INIT
+    hl_global_init();
+    hl_sys_init(nullptr, 0, nullptr);
+    hl_register_thread(&ctx->haxeStack);
+    ctx->haxeSystem = std::make_unique<me::haxe::HaxeSystem>("/code.hl");
+    ctx->haxeSystem->Load();
+
+    ctx->otherTestType = ctx->haxeSystem->GetType(u"OtherUpdate");
+    ctx->otherTestObject = ctx->otherTestType->CreateInstance();
 
     // load shaders
     ctx->vertexShader = LoadShader("/shaders/vertex.hlsl", me::asset::ShaderType::Vertex);
@@ -192,39 +201,21 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
     ctx->gltfMeshObject->material = ctx->material;
     ctx->scene->GetSceneWorld().AddObject(ctx->gltfMeshObject);
 
-    hl_global_init();
-    hl_sys_init(nullptr, 0, nullptr);
-    hl_register_thread(&ctx->haxeStack);
-    ctx->haxeSystem = std::make_unique<me::haxe::HaxeSystem>("/code.hl");
-    ctx->haxeSystem->Load();
+    ctx->sceneSystem.AddScene(ctx->scene);
 
-    ctx->otherTestType = ctx->haxeSystem->GetType(u"OtherUpdate");
-    ctx->otherTestObject = ctx->otherTestType->CreateInstance();
+    // make scene transform
 
-    std::u16string str = u"TestUpdate";
-    std::vector<hl_type*> types;
-    for (int i = 0; i < ctx->haxeSystem->GetModule()->code->ntypes; i++) {
-        auto type = &ctx->haxeSystem->GetModule()->code->types[i];
-        if (type->kind == hl_type_kind::HOBJ) {
-            std::u16string typeName = std::u16string(type->obj->name, ustrlen(type->obj->name));
-            if (typeName == str) {
-                types.push_back(type);
-            }
-        }
-    }
+    auto ptr = vdynamic();
+    ptr.t = &hlt_i64;
+    ptr.v.i64 = reinterpret_cast<int64>(&ctx->cubeMeshObject->GetTransform());
+    std::vector<vdynamic*> args = { &ptr };
+    auto transform = ctx->haxeSystem->GetType(u"me.scene.SceneTransform")->CreateInstance();
+    transform->CallVirtualMethod(u"ME_Initialize", args);
 
-    auto module = ctx->haxeSystem->GetModule();
-    auto proto = &types[0]->obj->proto[0];
-    ctx->haxeTestUpdate = hl_alloc_obj(types[0]);
-    ctx->updateFunction.t = module->code->functions[module->functions_indexes[proto->findex]].type;
-    ctx->updateFunction.fun = module->functions_ptrs[proto->findex];
-    ctx->updateFunction.hasValue = false;
-    // ctx->updateFunction.value = ctx->haxeTestUpdate;
-    // ctx->updateFunction.hasValue = true;
+    ctx->sinUpdate = ctx->haxeSystem->GetType(u"SinUpdate")->CreateInstance();
+    ctx->sinUpdate->SetPtr("target", transform);
 
-    me::scene::Initialize();
-    me::scene::AddScene(ctx->scene);
-
+    // INIT IMGUI
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
@@ -235,7 +226,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
     ImGui_ImplSDLGPU3_Init(me::window::device, me::window::window);
 
     *appstate = ctx;
-    SDL_Log("initialized");
+    spdlog::info("Initialized");
 
     return SDL_APP_CONTINUE;
 }
@@ -256,15 +247,8 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
 
     me::time::Update();
 
-    ctx->otherTestObject->CallMethod(u"Update", {});
-
-    // raw method of calling
-    bool isExcept = false;
-    vdynamic* args[1] = { ctx->haxeTestUpdate };
-    // hl_dyn_call_safe(&ctx->updateFunction, args, 1, &isExcept);
-    if (isExcept) {
-        spdlog::error("Haxe update failed");
-    }
+    // ctx->otherTestObject->CallMethod(u"Update", {});
+    ctx->sinUpdate->CallMethod(u"Update", {});
 
     ImGui_ImplSDL3_NewFrame();
     ImGui_ImplSDLGPU3_NewFrame();
@@ -277,11 +261,20 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
     if (ImGui::Button("Call Entrypoint")) {
         ctx->haxeSystem->CallEntryPoint();
     }
+    if (ImGui::Button("Check Position")) {
+        ctx->sinUpdate->CallMethod(u"PrintPos", {});
+    }
+    if (ImGui::Button("Check Time")) {
+        ctx->sinUpdate->CallMethod(u"PrintTime", {});
+    }
+    if (ImGui::Button("Check Cache")) {
+        ctx->sinUpdate->CallMethod(u"PrintCache", {});
+    }
     ImGui::End();
 
     ImGui::Begin("Basic Debug Panel");
 
-    ImGui::Text(fmt::format("Game Time: {:.2}", me::time::gameTime.GetElapsed()).c_str());
+    ImGui::Text(fmt::format("Game Time: {:0.2}", me::time::gameTime.GetElapsed()).c_str());
     ImGui::Text(fmt::format("Game Time Delta: {:.4}", me::time::gameTime.GetDelta()).c_str());
 
     if (ImGui::CollapsingHeader("Active Scene World")) {

@@ -1,11 +1,11 @@
 package;
 
-import me.internal.LogInterface;
+import me.bindings.LogBindings;
 import me.Log;
 
 class LogTest {
     public static function DoStuff(): Void {
-        LogInterface.log_info("");
+        LogBindings.log_info("");
         Log.Info("check it out, this is only written in haxe!!!!");
     }
 }

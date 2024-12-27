@@ -1,3 +1,5 @@
 .idea/
 cmake*/
 vendor/MANIFOLDEngine
+assets/code.hl
+types.xml
