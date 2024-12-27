@@ -25,8 +25,6 @@ class SinUpdate extends Update {
         vecCache.x = Math.sin(time);
         vecCache.z = Math.cos(time);
         target.Position = vecCache;
-        // transformCache.Position = vecCache;
-        // target.Global = transformCache;
     }
 
     public function PrintCache(): Void {
