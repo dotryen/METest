@@ -26,16 +26,16 @@
 #include "render/SimpleRenderPipeline.h"
 #include "time/TimeGlobal.h"
 
-me::math::Vector3 vertices[8] =
+me::math::PackedVector3 vertices[8] =
 {
-    me::math::Vector3(-1, -1, -1),
-    me::math::Vector3(1, -1, -1),
-    me::math::Vector3(1, 1, -1),
-    me::math::Vector3(-1, 1, -1),
-    me::math::Vector3(-1, -1, 1),
-    me::math::Vector3(1, -1, 1),
-    me::math::Vector3(1, 1, 1),
-    me::math::Vector3(-1, 1, 1)
+    me::math::PackedVector3(me::math::Vector3(-1, -1, -1)),
+    me::math::PackedVector3(me::math::Vector3(1, -1, -1)),
+    me::math::PackedVector3(me::math::Vector3(1, 1, -1)),
+    me::math::PackedVector3(me::math::Vector3(-1, 1, -1)),
+    me::math::PackedVector3(me::math::Vector3(-1, -1, 1)),
+    me::math::PackedVector3(me::math::Vector3(1, -1, 1)),
+    me::math::PackedVector3(me::math::Vector3(1, 1, 1)),
+    me::math::PackedVector3(me::math::Vector3(-1, 1, 1))
 };
 
 uint16_t indices[6 * 6] =
@@ -132,7 +132,7 @@ me::asset::MeshPtr LoadMesh(const std::string& path) {
         if (loader.LoadBinaryFromMemory(&gltfModel, &err, &warn, buffer, fileSize)) {
             // assume mesh zero
             int posAccessorID = gltfModel.meshes[0].primitives[0].attributes["POSITION"];
-            std::vector<me::math::Vector3> vertexBuffer = ReadAccessor<me::math::Vector3>(gltfModel, posAccessorID);
+            std::vector<me::math::PackedVector3> vertexBuffer = ReadAccessor<me::math::PackedVector3>(gltfModel, posAccessorID);
 
             // assume there are indices
             int indexAccessorID = gltfModel.meshes[0].primitives[0].indices;

@@ -21,6 +21,7 @@ class SinUpdate extends Update {
             vecCache = Vector3.Zero();
         }
 
+        // var example = radius + radius;
         var time = Time.Elapsed;
         vecCache.x = Math.sin(time);
         vecCache.z = Math.cos(time);

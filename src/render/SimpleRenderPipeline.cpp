@@ -10,18 +10,12 @@
 
 namespace me::render {
     struct WorldBuffer {
-        math::PackedVector4 view[4];
-        math::PackedVector4 proj[4];
+        math::PackedMatrix4x4 view;
+        math::PackedMatrix4x4 proj;
     };
 
     struct ObjectBuffer {
-        math::PackedVector4 model[4];
-    };
-
-    struct MatrixBuffer {
-        math::Matrix4x4 model;
-        math::Matrix4x4 view;
-        math::Matrix4x4 proj;
+        math::PackedMatrix4x4 model;
     };
 
     SimpleRenderPipeline::SimpleRenderPipeline(asset::MaterialPtr material) {
