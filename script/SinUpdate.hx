@@ -39,4 +39,8 @@ class SinUpdate extends Update {
     public function PrintTime(): Void {
         Log.Info("Current time is " + Time.Elapsed);
     }
+
+    public function DoMath(): Void {
+        var example = radius + radius;
+    }
 }

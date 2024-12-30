@@ -4,8 +4,9 @@
 
 #include "SimpleRenderPipeline.h"
 
-#include "render/MainWindow.h"
 #include "../imgui/imgui_impl_sdlgpu3.h"
+#include "render/RenderGlobals.h"
+#include "render/Window.h"
 #include "scene/sceneobj/SceneMesh.h"
 
 namespace me::render {
@@ -41,7 +42,7 @@ namespace me::render {
         }
 
         if (!transfers.empty()) {
-            SDL_GPUCommandBuffer* transferCmd = SDL_AcquireGPUCommandBuffer(window::device);
+            SDL_GPUCommandBuffer* transferCmd = SDL_AcquireGPUCommandBuffer(render::mainDevice);
             SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(transferCmd);
 
             for (asset::MeshTransfer& transfer : transfers) {
@@ -53,15 +54,15 @@ namespace me::render {
 
             for (asset::MeshTransfer& transfer : transfers) {
                 // releasing before submitting looks wrong but it does it during a submit
-                SDL_ReleaseGPUTransferBuffer(window::device, transfer.buffer);
+                SDL_ReleaseGPUTransferBuffer(render::mainDevice, transfer.buffer);
             }
 
             SDL_SubmitGPUCommandBuffer(transferCmd);
         }
 
-        SDL_GPUCommandBuffer* commandBuffer = SDL_AcquireGPUCommandBuffer(window::device);
+        SDL_GPUCommandBuffer* commandBuffer = SDL_AcquireGPUCommandBuffer(render::mainDevice);
         SDL_GPUTexture* swapchainTex;
-        if (!SDL_AcquireGPUSwapchainTexture(commandBuffer, window::window, &swapchainTex, NULL, NULL)) {
+        if (!SDL_AcquireGPUSwapchainTexture(commandBuffer, render::mainWindow->GetWindow(), &swapchainTex, NULL, NULL)) {
             return;
         }
         if (swapchainTex == nullptr) return;

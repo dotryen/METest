@@ -9,22 +9,26 @@
 #include "imgui/imgui_impl_sdlgpu3.h"
 #include <string>
 #include <tiny_gltf.h>
+#include <haxe/HaxeGlobals.h>
+#include <render/RenderGlobals.h>
+#include <scene/SceneGlobals.h>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <spdlog/spdlog.h>
 
+#include "MECore.h"
 #include "asset/Material.h"
 #include "asset/Mesh.h"
 #include "asset/Shader.h"
-#include "render/MainWindow.h"
 #include "scene/SceneSystem.h"
 #include "scene/sceneobj/SceneMesh.h"
-#include "FileSystem.h"
+#include "fs/FileSystem.h"
 #include "haxe/HaxeSystem.h"
 #include "log/LogSystem.h"
 #include "render/RenderPipeline.h"
 #include "render/SimpleRenderPipeline.h"
 #include "time/TimeGlobal.h"
+#include "render/Window.h"
 
 me::math::PackedVector3 vertices[8] =
 {
@@ -48,15 +52,10 @@ uint16_t indices[6 * 6] =
     4, 5, 0, 0, 5, 1
 };
 
-struct HaxeStack {
-    int padding;
-};
-
 struct AppContext {
     float imguiFloat;
     me::math::Vector3 imguiFloat3;
 
-    me::scene::SceneSystem sceneSystem;
     me::scene::ScenePtr scene;
     me::scene::SceneObject* exampleObject;
 
@@ -71,8 +70,6 @@ struct AppContext {
     me::asset::ShaderPtr fragmentShader;
     std::unique_ptr<me::render::RenderPipeline> renderPipeline;
 
-    HaxeStack haxeStack;
-    std::unique_ptr<me::haxe::HaxeSystem> haxeSystem;
     me::haxe::HaxeType* otherTestType;
     me::haxe::HaxeObject* otherTestObject;
     me::haxe::HaxeObject* sinUpdate;
@@ -83,7 +80,7 @@ struct AppContext {
 me::asset::ShaderPtr LoadShader(const std::string& path, me::asset::ShaderType type) {
     vfspp::IFilePtr file = me::fs::OpenFile(path);
     if (file && file->IsOpened()) {
-        SDL_Log(("Opened shader: " + path).c_str());
+        spdlog::info("Opened shader: " + path);
         size_t size = file->Size();
         unsigned char* buffer = new unsigned char[size + 1];
         memset(buffer, 0, size + 1);
@@ -93,7 +90,7 @@ me::asset::ShaderPtr LoadShader(const std::string& path, me::asset::ShaderType t
         me::asset::ShaderPtr shader = std::make_shared<me::asset::Shader>(false, type, reinterpret_cast<char*>(buffer), size);
         return shader;
     }
-    SDL_Log(("Failed to load shader: " + path).c_str());
+    spdlog::info("Failed to load shader: " + path);
     return nullptr;
 }
 
@@ -144,32 +141,19 @@ me::asset::MeshPtr LoadMesh(const std::string& path) {
     return nullptr;
 }
 
-SDL_AppResult SDL_Fail() {
-    SDL_LogError(SDL_LOG_CATEGORY_CUSTOM, "SDL Error: %s", SDL_GetError());
-    return SDL_APP_FAILURE;
-}
-
 SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
-    if (!SDL_Init(SDL_INIT_VIDEO)) {
-        return SDL_Fail();
+    if (!me::Initialize(me::MESystems::All)) {
+        spdlog::critical("Failed to initialize MANIFOLDEngine");
+        return SDL_APP_FAILURE;
     }
 
-    me::log::Initialize();
-    me::time::Initialize();
-    me::fs::Initialize();
-    me::window::OpenWindow("MANIFOLDEngine", { 1280, 720 });
+    me::render::CreateMainWindow("MECore Test", { 1280, 720 });
+    me::haxe::CreateMainSystem("/code.hl");
 
     auto ctx = new AppContext();
     ctx->shouldQuit = false;
 
-    // HAXE INIT
-    hl_global_init();
-    hl_sys_init(nullptr, 0, nullptr);
-    hl_register_thread(&ctx->haxeStack);
-    ctx->haxeSystem = std::make_unique<me::haxe::HaxeSystem>("/code.hl");
-    ctx->haxeSystem->Load();
-
-    ctx->otherTestType = ctx->haxeSystem->GetType(u"OtherUpdate");
+    ctx->otherTestType = me::haxe::mainSystem->GetType(u"OtherUpdate");
     ctx->otherTestObject = ctx->otherTestType->CreateInstance();
 
     // load shaders
@@ -201,18 +185,17 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
     ctx->gltfMeshObject->material = ctx->material;
     ctx->scene->GetSceneWorld().AddObject(ctx->gltfMeshObject);
 
-    ctx->sceneSystem.AddScene(ctx->scene);
+    me::scene::mainSystem->AddScene(ctx->scene);
 
     // make scene transform
-
     auto ptr = vdynamic();
     ptr.t = &hlt_i64;
     ptr.v.i64 = reinterpret_cast<int64>(&ctx->cubeMeshObject->GetTransform());
     std::vector<vdynamic*> args = { &ptr };
-    auto transform = ctx->haxeSystem->GetType(u"me.scene.SceneTransform")->CreateInstance();
+    auto transform = me::haxe::mainSystem->GetType(u"me.scene.SceneTransform")->CreateInstance();
     transform->CallVirtualMethod(u"ME_Initialize", args);
 
-    ctx->sinUpdate = ctx->haxeSystem->GetType(u"SinUpdate")->CreateInstance();
+    ctx->sinUpdate = me::haxe::mainSystem->GetType(u"SinUpdate")->CreateInstance();
     ctx->sinUpdate->SetPtr("target", transform);
 
     // INIT IMGUI
@@ -222,8 +205,8 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
-    ImGui_ImplSDL3_InitForVulkan(me::window::window);
-    ImGui_ImplSDLGPU3_Init(me::window::device, me::window::window);
+    ImGui_ImplSDL3_InitForVulkan(me::render::mainWindow->GetWindow());
+    ImGui_ImplSDLGPU3_Init(me::render::mainDevice, me::render::mainWindow->GetWindow());
 
     *appstate = ctx;
     spdlog::info("Initialized");
@@ -259,7 +242,7 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
 
     ImGui::Begin("Haxe Test");
     if (ImGui::Button("Call Entrypoint")) {
-        ctx->haxeSystem->CallEntryPoint();
+        me::haxe::mainSystem->CallEntryPoint();
     }
     if (ImGui::Button("Check Position")) {
         ctx->sinUpdate->CallMethod(u"PrintPos", {});
@@ -270,12 +253,15 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
     if (ImGui::Button("Check Cache")) {
         ctx->sinUpdate->CallMethod(u"PrintCache", {});
     }
+    if (ImGui::Button("Do Math")) {
+        ctx->sinUpdate->CallMethod(u"DoMath", {});
+    }
     ImGui::End();
 
     ImGui::Begin("Basic Debug Panel");
 
-    ImGui::Text(fmt::format("Game Time: {:0.2}", me::time::gameTime.GetElapsed()).c_str());
-    ImGui::Text(fmt::format("Game Time Delta: {:.4}", me::time::gameTime.GetDelta()).c_str());
+    ImGui::Text(fmt::format("Game Time: {:0.2}", me::time::mainGame.GetElapsed()).c_str());
+    ImGui::Text(fmt::format("Game Time Delta: {:.4}", me::time::mainGame.GetDelta()).c_str());
 
     if (ImGui::CollapsingHeader("Active Scene World")) {
         if (ImGui::TreeNode("Camera")) {
@@ -292,7 +278,6 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
 
             if (ImGui::SliderFloat("Field of View", &ctx->imguiFloat, 1.0f, 179.0f)) {
                 camera.SetFOV(ctx->imguiFloat);
-                // SDL_Log(std::format("FOV = {}", ctx->cameraFOVBuffer).c_str());
             }
             ImGui::TreePop();
         }
@@ -330,11 +315,9 @@ void SDL_AppQuit(void* appstate, SDL_AppResult result) {
         delete ctx;
     }
 
-    hl_global_free();
-
     ImGui_ImplSDL3_Shutdown();
     ImGui_ImplSDLGPU3_Shutdown();
     ImGui::DestroyContext();
-    me::window::CloseWindow();
-    SDL_Log("Quitted");
+
+    me::Shutdown();
 }
