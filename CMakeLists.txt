@@ -16,7 +16,7 @@ target_include_directories(Test PRIVATE vendor/imgui)
 mathfu_configure_flags(Test)
 
 ME_configure(Test)
-target_link_libraries(Test PRIVATE SDL3::SDL3 spdlog::spdlog libhl HLVM tinygltf vfspp)
+target_link_libraries(Test PRIVATE SDL3::SDL3 Jolt spdlog::spdlog libhl HLVM tinygltf vfspp)
 
 add_custom_target(assets COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_LIST_DIR}/assets ${CMAKE_CURRENT_BINARY_DIR}/assets)
 add_dependencies(Test assets)

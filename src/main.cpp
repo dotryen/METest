@@ -15,6 +15,7 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <spdlog/spdlog.h>
+#include <Jolt/Jolt.h>
 
 #include "MECore.h"
 #include "asset/Material.h"
@@ -24,6 +25,8 @@
 #include "scene/sceneobj/SceneMesh.h"
 #include "fs/FileSystem.h"
 #include "haxe/HaxeSystem.h"
+#include "Jolt/Physics/Body/BodyCreationSettings.h"
+#include "Jolt/Physics/Collision/Shape/BoxShape.h"
 #include "log/LogSystem.h"
 #include "render/RenderPipeline.h"
 #include "render/SimpleRenderPipeline.h"
@@ -62,6 +65,12 @@ struct AppContext {
     me::asset::MeshPtr cubeMesh;
     me::scene::SceneMesh* cubeMeshObject;
 
+    JPH::BoxShapeSettings floorShapeSettings { JPH::RVec3(100.0f, 1.0f, 100.0f) };
+    JPH::Body* floor;
+
+    JPH::BodyID cubeId;
+    me::scene::SceneMesh* physicsCubeObject;
+
     me::asset::MeshPtr gltfMesh;
     me::scene::SceneMesh* gltfMeshObject;
 
@@ -76,6 +85,10 @@ struct AppContext {
 
     bool shouldQuit;
 };
+
+inline me::math::Vector3 Util_Convert(const JPH::Vec3& vec) {
+    return { vec.GetX(), vec.GetY(), vec.GetZ() };
+}
 
 me::asset::ShaderPtr LoadShader(const std::string& path, me::asset::ShaderType type) {
     vfspp::IFilePtr file = me::fs::OpenFile(path);
@@ -178,6 +191,11 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
     ctx->cubeMeshObject->material = ctx->material;
     ctx->scene->GetSceneWorld().AddObject(ctx->cubeMeshObject);
 
+    ctx->physicsCubeObject = new me::scene::SceneMesh("physics cube");
+    ctx->physicsCubeObject->mesh = ctx->cubeMesh;
+    ctx->physicsCubeObject->material = ctx->material;
+    ctx->scene->GetSceneWorld().AddObject(ctx->physicsCubeObject);
+
     ctx->gltfMesh = LoadMesh("/alitrophy.glb");
     ctx->gltfMeshObject = new me::scene::SceneMesh("gltf");
     ctx->gltfMeshObject->GetTransform().SetPosition({ 5.f, 0.f, 0.f });
@@ -186,6 +204,23 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
     ctx->scene->GetSceneWorld().AddObject(ctx->gltfMeshObject);
 
     me::scene::mainSystem->AddScene(ctx->scene);
+
+    // add physics cube
+    auto& bodyInterface = ctx->scene->GetPhysicsWorld().GetInterface();
+
+    ctx->floorShapeSettings.SetEmbedded();
+    JPH::ShapeSettings::ShapeResult floorShapeResult = ctx->floorShapeSettings.Create();
+    JPH::ShapeRefC floorShape = floorShapeResult.Get();
+
+    JPH::BodyCreationSettings floorCreateSettings(floorShape, JPH::RVec3(0.0f, -1.0f, 0.0f), JPH::Quat::sIdentity(), JPH::EMotionType::Static, static_cast<JPH::ObjectLayer>(me::physics::PhysicsLayer::Static));
+
+    ctx->floor = bodyInterface.CreateBody(floorCreateSettings);
+    bodyInterface.AddBody(ctx->floor->GetID(), JPH::EActivation::DontActivate);
+
+    JPH::BodyCreationSettings cubeSettings(new JPH::BoxShape(JPH::RVec3(1, 1, 1)), JPH::RVec3(0, 10, 0), JPH::Quat::sIdentity(), JPH::EMotionType::Dynamic, static_cast<JPH::ObjectLayer>(me::physics::PhysicsLayer::Dynamic));
+    ctx->cubeId = bodyInterface.CreateAndAddBody(cubeSettings, JPH::EActivation::Activate);
+
+    bodyInterface.SetLinearVelocity(ctx->cubeId, JPH::Vec3(0, 5, 0));
 
     // make scene transform
     auto ptr = vdynamic();
@@ -228,7 +263,13 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event) {
 SDL_AppResult SDL_AppIterate(void* appstate) {
     auto* ctx = static_cast<AppContext*>(appstate);
 
+    me::scene::mainSystem->Update();
     me::time::Update();
+
+    auto& bodyInterface = ctx->scene->GetPhysicsWorld().GetInterface();
+
+    me::math::Vector3 pos = Util_Convert(bodyInterface.GetPosition(ctx->cubeId));
+    ctx->physicsCubeObject->GetTransform().SetPosition(pos);
 
     // ctx->otherTestObject->CallMethod(u"Update", {});
     ctx->sinUpdate->CallMethod(u"Update", {});
@@ -241,9 +282,9 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
     ImGui::End();
 
     ImGui::Begin("Haxe Test");
-    if (ImGui::Button("Call Entrypoint")) {
-        me::haxe::mainSystem->CallEntryPoint();
-    }
+    // if (ImGui::Button("Call Entrypoint")) {
+    //     me::haxe::mainSystem->CallEntryPoint();
+    // }
     if (ImGui::Button("Check Position")) {
         ctx->sinUpdate->CallMethod(u"PrintPos", {});
     }
