@@ -8,6 +8,7 @@ TestUpdate
 OtherUpdate
 SinUpdate
 
+--macro include('me', true)
 --main Main
 
 --hl assets/code.hl

@@ -8,6 +8,7 @@
 #include "render/RenderGlobals.h"
 #include "render/Window.h"
 #include "scene/sceneobj/SceneMesh.h"
+#include "math/Transform.h"
 
 namespace me::render {
     struct WorldBuffer {

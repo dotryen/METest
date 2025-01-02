@@ -83,6 +83,8 @@ struct AppContext {
     me::haxe::HaxeObject* otherTestObject;
     me::haxe::HaxeObject* sinUpdate;
 
+    me::scene::GameObject* gameObject;
+
     bool shouldQuit;
 };
 
@@ -202,6 +204,9 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
     ctx->gltfMeshObject->mesh = ctx->gltfMesh;
     ctx->gltfMeshObject->material = ctx->material;
     ctx->scene->GetSceneWorld().AddObject(ctx->gltfMeshObject);
+
+    ctx->gameObject = new me::scene::GameObject("test object");
+    ctx->scene->GetGameWorld().AddObject(ctx->gameObject);
 
     me::scene::mainSystem->AddScene(ctx->scene);
 
@@ -339,6 +344,19 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
                 }
             }
             ImGui::TreePop();
+        }
+    }
+
+    if (ImGui::CollapsingHeader("Active Game World")) {
+        for (auto* obj : ctx->scene->GetGameWorld().GetObjects()) {
+            if (ImGui::TreeNode(fmt::format("GameObject id {}", obj->GetName()).c_str())) {
+                auto& transform = obj->GetTransform();
+                auto& raw = transform.LocalRaw();
+                ImGui::Text("Transform");
+                ImGui::DragFloat3("Position", reinterpret_cast<float*>(&raw.position), 0.1f);
+
+                ImGui::TreePop();
+            }
         }
     }
     ImGui::End();
