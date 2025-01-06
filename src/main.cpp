@@ -161,9 +161,8 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
         spdlog::critical("Failed to initialize MANIFOLDEngine");
         return SDL_APP_FAILURE;
     }
-
     me::render::CreateMainWindow("MECore Test", { 1280, 720 });
-    me::haxe::CreateMainSystem("/code.hl");
+    // me::haxe::CreateMainSystem("/code.hl");
 
     auto ctx = new AppContext();
     ctx->shouldQuit = false;
@@ -235,6 +234,8 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
     auto transform = me::haxe::mainSystem->GetType(u"me.scene.SceneTransform")->CreateInstance();
     transform->CallVirtualMethod(u"ME_Initialize", args);
 
+    auto result = me::haxe::mainSystem->GetTypesWithName(u"SceneSystem");
+
     ctx->sinUpdate = me::haxe::mainSystem->GetType(u"SinUpdate")->CreateInstance();
     ctx->sinUpdate->SetPtr("target", transform);
 
@@ -301,6 +302,9 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
     }
     if (ImGui::Button("Do Math")) {
         ctx->sinUpdate->CallMethod(u"DoMath", {});
+    }
+    if (ImGui::Button("Get Scene Count")) {
+        ctx->sinUpdate->CallMethod(u"GetSceneCount", {});
     }
     ImGui::End();
 

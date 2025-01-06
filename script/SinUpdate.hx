@@ -1,5 +1,6 @@
 package;
 
+import me.SceneSystem;
 import me.Log;
 import me.math.Vector3;
 import me.Time;
@@ -42,5 +43,9 @@ class SinUpdate extends Update {
 
     public function DoMath(): Void {
         var example = radius + radius;
+    }
+
+    public function GetSceneCount(): Void {
+        Log.Info('Scene count: ${SceneSystem.instance.SceneCount}');
     }
 }
