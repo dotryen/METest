@@ -24,8 +24,8 @@ class SinUpdate extends Update {
 
         // var example = radius + radius;
         var time = Time.Elapsed;
-        vecCache.x = Math.sin(time);
-        vecCache.z = Math.cos(time);
+        vecCache.x = Math.sin(time) * radius;
+        vecCache.z = Math.cos(time) * radius;
         target.Position = vecCache;
     }
 

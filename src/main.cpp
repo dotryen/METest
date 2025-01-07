@@ -205,6 +205,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
     ctx->scene->GetSceneWorld().AddObject(ctx->gltfMeshObject);
 
     ctx->gameObject = new me::scene::GameObject("test object");
+    ctx->gameObject->GetComponents().CreateComponent(me::haxe::mainSystem->GetType(u"TestComponent"));
     ctx->scene->GetGameWorld().AddObject(ctx->gameObject);
 
     me::scene::mainSystem->AddScene(ctx->scene);
@@ -355,7 +356,7 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
         for (auto* obj : ctx->scene->GetGameWorld().GetObjects()) {
             if (ImGui::TreeNode(fmt::format("GameObject id {}", obj->GetName()).c_str())) {
                 auto& transform = obj->GetTransform();
-                auto& raw = transform.LocalRaw();
+                auto& raw = transform.GlobalRaw();
                 ImGui::Text("Transform");
                 ImGui::DragFloat3("Position", reinterpret_cast<float*>(&raw.position), 0.1f);
 
