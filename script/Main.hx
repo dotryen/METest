@@ -1,7 +1,9 @@
 package;
 
+import me.Log;
+
 class Main {
     public static function main():Void {
-        LogTest.DoStuff();
+        Log.Info("HL setup.");
     }
 }

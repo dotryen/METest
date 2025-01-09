@@ -35,14 +35,14 @@
 
 me::math::PackedVector3 vertices[8] =
 {
-    me::math::PackedVector3(me::math::Vector3(-1, -1, -1)),
-    me::math::PackedVector3(me::math::Vector3(1, -1, -1)),
-    me::math::PackedVector3(me::math::Vector3(1, 1, -1)),
-    me::math::PackedVector3(me::math::Vector3(-1, 1, -1)),
-    me::math::PackedVector3(me::math::Vector3(-1, -1, 1)),
-    me::math::PackedVector3(me::math::Vector3(1, -1, 1)),
-    me::math::PackedVector3(me::math::Vector3(1, 1, 1)),
-    me::math::PackedVector3(me::math::Vector3(-1, 1, 1))
+    me::math::PackedVector3(-1, -1, -1),
+    me::math::PackedVector3(1, -1, -1),
+    me::math::PackedVector3(1, 1, -1),
+    me::math::PackedVector3(-1, 1, -1),
+    me::math::PackedVector3(-1, -1, 1),
+    me::math::PackedVector3(1, -1, 1),
+    me::math::PackedVector3(1, 1, 1),
+    me::math::PackedVector3(-1, 1, 1)
 };
 
 uint16_t indices[6 * 6] =
@@ -60,7 +60,6 @@ struct AppContext {
     me::math::Vector3 imguiFloat3;
 
     me::scene::ScenePtr scene;
-    me::scene::SceneObject* exampleObject;
 
     me::asset::MeshPtr cubeMesh;
     me::scene::SceneMesh* cubeMeshObject;
@@ -167,9 +166,6 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
     auto ctx = new AppContext();
     ctx->shouldQuit = false;
 
-    ctx->otherTestType = me::haxe::mainSystem->GetType(u"OtherUpdate");
-    ctx->otherTestObject = ctx->otherTestType->CreateInstance();
-
     // load shaders
     ctx->vertexShader = LoadShader("/shaders/vertex.hlsl", me::asset::ShaderType::Vertex);
     ctx->fragmentShader = LoadShader("/shaders/fragment.hlsl", me::asset::ShaderType::Fragment);
@@ -180,10 +176,6 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
 
     // set camera pos
     ctx->scene->GetSceneWorld().GetCamera().GetTransform().SetPosition({ 0.f, 0.f, -10.f });
-
-    // make blank object
-    ctx->exampleObject = new me::scene::SceneObject("blank");
-    ctx->scene->GetSceneWorld().AddObject(ctx->exampleObject);
 
     // make mesh and object
     ctx->cubeMesh = std::make_shared<me::asset::Mesh>(vertices, 8, indices, 36);
@@ -205,7 +197,9 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
     ctx->scene->GetSceneWorld().AddObject(ctx->gltfMeshObject);
 
     ctx->gameObject = new me::scene::GameObject("test object");
-    ctx->gameObject->GetComponents().CreateComponent(me::haxe::mainSystem->GetType(u"TestComponent"));
+    auto* compType = me::haxe::mainSystem->GetType(u"TestComponent");
+    compType->SetPtr("mesh", ctx->cubeMesh->GetHaxeObject());
+    ctx->gameObject->GetComponents().CreateComponent(compType);
     ctx->scene->GetGameWorld().AddObject(ctx->gameObject);
 
     me::scene::mainSystem->AddScene(ctx->scene);
@@ -226,19 +220,6 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
     ctx->cubeId = bodyInterface.CreateAndAddBody(cubeSettings, JPH::EActivation::Activate);
 
     bodyInterface.SetLinearVelocity(ctx->cubeId, JPH::Vec3(0, 5, 0));
-
-    // make scene transform
-    auto ptr = vdynamic();
-    ptr.t = &hlt_i64;
-    ptr.v.i64 = reinterpret_cast<int64>(&ctx->cubeMeshObject->GetTransform());
-    std::vector<vdynamic*> args = { &ptr };
-    auto transform = me::haxe::mainSystem->GetType(u"me.scene.SceneTransform")->CreateInstance();
-    transform->CallVirtualMethod(u"ME_Initialize", args);
-
-    auto result = me::haxe::mainSystem->GetTypesWithName(u"SceneSystem");
-
-    ctx->sinUpdate = me::haxe::mainSystem->GetType(u"SinUpdate")->CreateInstance();
-    ctx->sinUpdate->SetPtr("target", transform);
 
     // INIT IMGUI
     IMGUI_CHECKVERSION();
@@ -278,35 +259,11 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
     me::math::Vector3 pos = Util_Convert(bodyInterface.GetPosition(ctx->cubeId));
     ctx->physicsCubeObject->GetTransform().SetPosition(pos);
 
-    // ctx->otherTestObject->CallMethod(u"Update", {});
-    ctx->sinUpdate->CallMethod(u"Update", {});
-
     ImGui_ImplSDL3_NewFrame();
     ImGui_ImplSDLGPU3_NewFrame();
     ImGui::NewFrame();
     ImGui::Begin("Console");
     ImGui::Text(me::log::stream.str().c_str());
-    ImGui::End();
-
-    ImGui::Begin("Haxe Test");
-    // if (ImGui::Button("Call Entrypoint")) {
-    //     me::haxe::mainSystem->CallEntryPoint();
-    // }
-    if (ImGui::Button("Check Position")) {
-        ctx->sinUpdate->CallMethod(u"PrintPos", {});
-    }
-    if (ImGui::Button("Check Time")) {
-        ctx->sinUpdate->CallMethod(u"PrintTime", {});
-    }
-    if (ImGui::Button("Check Cache")) {
-        ctx->sinUpdate->CallMethod(u"PrintCache", {});
-    }
-    if (ImGui::Button("Do Math")) {
-        ctx->sinUpdate->CallMethod(u"DoMath", {});
-    }
-    if (ImGui::Button("Get Scene Count")) {
-        ctx->sinUpdate->CallMethod(u"GetSceneCount", {});
-    }
     ImGui::End();
 
     ImGui::Begin("Basic Debug Panel");
@@ -359,12 +316,14 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
                 auto& raw = transform.GlobalRaw();
                 ImGui::Text("Transform");
                 ImGui::DragFloat3("Position", reinterpret_cast<float*>(&raw.position), 0.1f);
-
+                ImGui::DragFloat3("Scale", reinterpret_cast<float*>(&raw.scale), 0.1f);
                 ImGui::TreePop();
             }
         }
     }
     ImGui::End();
+
+    me::scene::mainSystem->PreRender();
 
     ImGui::Render();
     ctx->renderPipeline->Render(&ctx->scene->GetSceneWorld());

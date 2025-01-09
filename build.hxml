@@ -2,11 +2,7 @@
 --dce no
 
 --class-path script
-LogTest
 Main
-TestUpdate
-OtherUpdate
-SinUpdate
 TestComponent
 
 --macro include('me', true)

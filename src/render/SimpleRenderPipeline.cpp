@@ -34,6 +34,7 @@ namespace me::render {
         for (scene::SceneObject* obj : list) {
             scene::SceneMesh* meshObj = dynamic_cast<scene::SceneMesh*>(obj);
             if (meshObj == nullptr) continue;
+            if (meshObj->mesh == nullptr) continue;
 
             meshes.push_back(meshObj);
             if (!meshObj->mesh->HasGPUBuffers()) {
@@ -79,13 +80,13 @@ namespace me::render {
         SDL_BindGPUGraphicsPipeline(renderPass, material->GetPipeline());
 
         WorldBuffer worldBuffer;
-        world->GetCamera().GetTransform().Raw().ToSRT(true).Pack(worldBuffer.view);
-        world->GetCamera().GetProjectionMatrix().Pack(worldBuffer.proj);
+        world->GetCamera().GetTransform().Raw().ToSRT(true).StoreFloat4x4(worldBuffer.view);
+        world->GetCamera().GetProjectionMatrix().StoreFloat4x4(worldBuffer.proj);
         SDL_PushGPUVertexUniformData(commandBuffer, 0, &worldBuffer, sizeof(WorldBuffer));
 
         for (scene::SceneMesh* mesh : meshes) {
             ObjectBuffer objectBuffer;
-            mesh->GetTransform().Raw().ToTRS(true).Pack(objectBuffer.model);
+            mesh->GetTransform().Raw().ToTRS(true).StoreFloat4x4(objectBuffer.model);
 
             SDL_GPUBufferBinding vertexBinding = { mesh->mesh->GetGPUVertexBuffer(), 0 };
             SDL_GPUBufferBinding indexBinding = { mesh->mesh->GetGPUIndexBuffer(), 0 };

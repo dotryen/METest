@@ -13,7 +13,6 @@ set(IMGUI_BACKENDS vendor/imgui/backends/imgui_impl_sdl3.cpp vendor/imgui/backen
 add_executable(Test)
 target_sources(Test PRIVATE ${SOURCES} ${IMGUI_SOURCES} ${IMGUI_BACKENDS})
 target_include_directories(Test PRIVATE vendor/imgui)
-mathfu_configure_flags(Test)
 
 ME_configure(Test)
 target_link_libraries(Test PRIVATE SDL3::SDL3 Jolt spdlog::spdlog libhl HLVM tinygltf vfspp)
